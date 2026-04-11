@@ -13,8 +13,7 @@ async function main() {
   await prisma.appointment.deleteMany();
   await prisma.patient.deleteMany();
   await prisma.dentist.deleteMany();
-  await prisma.session.deleteMany();
-  await prisma.account.deleteMany();
+
   await prisma.user.deleteMany();
 
   const hashedPassword = await bcrypt.hash("password123", 12);
