@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
+import { toast } from "sonner";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import type { DentistWithUser, PatientWithUser } from "@/types";
 
 interface Props {
@@ -60,6 +62,7 @@ export function NewAppointmentModal({ dentists, prefill, onClose, onCreated }: P
 
       onCreated();
       onClose();
+      toast.success("Agendamento criado com sucesso.");
     } catch {
       setError("Erro de conexão.");
     } finally {
@@ -68,19 +71,16 @@ export function NewAppointmentModal({ dentists, prefill, onClose, onCreated }: P
   }
 
   return (
-    <div
-      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="sm:max-w-md gap-0 p-0 overflow-hidden" showCloseButton={false}>
         <div className="flex items-start justify-between p-6 border-b border-gray-200">
           <div>
-            <h3 className="font-semibold text-gray-900 text-lg">Novo Agendamento</h3>
-            <p className="text-sm text-gray-500 mt-0.5">
+            <DialogTitle className="font-semibold text-gray-900 text-lg">Novo Agendamento</DialogTitle>
+            <DialogDescription className="text-sm text-gray-500 mt-0.5">
               {format(new Date(date + "T12:00:00"), "d 'de' MMMM")} · {startTime}–{endTime}
-            </p>
+            </DialogDescription>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 w-8 h-8 flex items-center justify-center rounded-lg transition-all text-xl leading-none">×</button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -184,7 +184,7 @@ export function NewAppointmentModal({ dentists, prefill, onClose, onCreated }: P
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

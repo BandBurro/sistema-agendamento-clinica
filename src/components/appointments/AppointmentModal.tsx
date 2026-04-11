@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { STATUS_LABELS, VALID_TRANSITIONS } from "@/types";
 import type { AppointmentWithRelations } from "@/types";
@@ -18,7 +20,7 @@ interface Props {
 
 function toTimeString(date: Date | string) {
   const d = new Date(date);
-  return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
 function toDateString(date: Date | string) {
@@ -67,6 +69,7 @@ export function AppointmentModal({
       const updated = await res.json();
       onUpdated(updated);
       onClose();
+      toast.success(`Status atualizado: ${STATUS_LABELS[newStatus]}`);
     } catch {
       setError("Erro de conexão.");
     } finally {
@@ -93,6 +96,7 @@ export function AppointmentModal({
       const updated = await res.json();
       onUpdated(updated);
       onClose();
+      toast.success("Agendamento reagendado com sucesso.");
     } catch {
       setError("Erro de conexão.");
     } finally {
@@ -104,18 +108,17 @@ export function AppointmentModal({
     "w-full px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50 hover:bg-white hover:border-gray-300 transition-all duration-150";
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="sm:max-w-md gap-0 p-0 overflow-hidden bg-white" showCloseButton={false}>
         {/* Header */}
         <div className="flex items-start justify-between p-6 border-b border-gray-200">
           <div>
-            <h3 className="font-semibold text-gray-900 text-lg">Detalhes do Agendamento</h3>
-            <p className="text-sm text-gray-400 mt-0.5 capitalize">
+            <DialogTitle className="font-semibold text-gray-900 text-lg">
+              Detalhes do Agendamento
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-400 mt-0.5 capitalize">
               {format(new Date(appointment.date), "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
-            </p>
+            </DialogDescription>
           </div>
           <button
             onClick={onClose}
@@ -227,7 +230,7 @@ export function AppointmentModal({
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

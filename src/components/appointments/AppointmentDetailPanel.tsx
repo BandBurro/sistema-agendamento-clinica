@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { STATUS_LABELS, VALID_TRANSITIONS } from "@/types";
 import type { AppointmentWithRelations } from "@/types";
@@ -18,7 +19,7 @@ interface Props {
 
 function toTimeString(date: Date | string) {
   const d = new Date(date);
-  return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
 function toDateString(date: Date | string) {
@@ -64,7 +65,9 @@ export function AppointmentDetailPanel({
         setError(data.error || "Erro ao atualizar status.");
         return;
       }
-      onUpdated(await res.json());
+      const updated = await res.json();
+      onUpdated(updated);
+      toast.success(`Movido para: ${STATUS_LABELS[newStatus]}`);
     } catch {
       setError("Erro de conexão.");
     } finally {
@@ -89,6 +92,7 @@ export function AppointmentDetailPanel({
       }
       onUpdated(await res.json());
       setShowReschedule(false);
+      toast.success("Agendamento reagendado.");
     } catch {
       setError("Erro de conexão.");
     } finally {

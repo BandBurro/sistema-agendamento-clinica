@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { format, addDays, isSameDay, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { motion } from "framer-motion";
 import type { AppointmentWithRelations } from "@/types";
 import type { AppointmentStatus } from "@/generated/prisma/client";
 import { useServerTime } from "@/hooks/useServerTime";
@@ -59,8 +60,8 @@ export function WeekCalendar({
   function getBlockPosition(appt: AppointmentWithRelations) {
     const start = new Date(appt.startTime);
     const end = new Date(appt.endTime);
-    const startMins = start.getUTCHours() * 60 + start.getUTCMinutes() - START_HOUR * 60;
-    const endMins   = end.getUTCHours()   * 60 + end.getUTCMinutes()   - START_HOUR * 60;
+    const startMins = start.getHours() * 60 + start.getMinutes() - START_HOUR * 60;
+    const endMins   = end.getHours()   * 60 + end.getMinutes()   - START_HOUR * 60;
     return {
       top:    Math.max(0, startMins * PX_PER_MIN),
       height: Math.max((endMins - startMins) * PX_PER_MIN, 22),
@@ -196,7 +197,7 @@ export function WeekCalendar({
 
                 {/* Current-time indicator — today's column only */}
                 {today && (() => {
-                  const nowTop = (now.getUTCHours() + now.getUTCMinutes() / 60 - START_HOUR) * HOUR_HEIGHT;
+                  const nowTop = (now.getHours() + now.getMinutes() / 60 - START_HOUR) * HOUR_HEIGHT;
                   if (nowTop < 0 || nowTop > TOTAL_HEIGHT) return null;
                   return (
                     <div
@@ -211,17 +212,22 @@ export function WeekCalendar({
                 })()}
 
                 {/* Appointment blocks */}
-                {dayAppts.map((appt) => {
+                {dayAppts.map((appt, idx) => {
                   const { top, height } = getBlockPosition(appt);
                   const isSelected = appt.id === selectedId;
                   const isPast = getAppointmentDateTime(appt.date, appt.startTime) < now;
                   return (
-                    <button
+                    <motion.button
                       key={appt.id}
                       style={{ position: "absolute", top, height, left: 3, right: 3 }}
-                      className={`rounded border-l-[3px] px-2 py-0.5 text-left overflow-hidden cursor-pointer transition-all z-10 ${BLOCK_STYLES[appt.status]} ${
+                      className={`rounded border-l-[3px] px-2 py-0.5 text-left overflow-hidden cursor-pointer z-10 ${BLOCK_STYLES[appt.status]} ${
                         isSelected ? "ring-2 ring-indigo-400 ring-inset" : ""
-                      } ${isPast ? "opacity-50 grayscale" : ""}`}
+                      } ${isPast ? "grayscale" : ""}`}
+                      initial={{ opacity: 0, scale: 0.94 }}
+                      animate={{ opacity: isPast ? 0.5 : 1, scale: 1 }}
+                      transition={{ duration: 0.18, delay: idx * 0.04, ease: "easeOut" }}
+                      whileHover={{ scale: 1.02, zIndex: 20 }}
+                      whileTap={{ scale: 0.97 }}
                       onClick={(e) => {
                         e.stopPropagation();
                         onAppointmentClick(appt);
@@ -237,7 +243,7 @@ export function WeekCalendar({
                           {format(new Date(appt.endTime), "HH:mm")}
                         </p>
                       )}
-                    </button>
+                    </motion.button>
                   );
                 })}
               </div>

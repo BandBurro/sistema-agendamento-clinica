@@ -2,9 +2,11 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { format, addDays, startOfWeek } from "date-fns";
+import { AnimatePresence, motion } from "framer-motion";
 import { WeekCalendar } from "@/components/calendar/WeekCalendar";
 import { DayDetailView } from "@/components/calendar/DayDetailView";
 import { AppointmentDetailPanel } from "@/components/appointments/AppointmentDetailPanel";
+import { DashboardAnalytics } from "@/components/dashboard/DashboardAnalytics";
 import type { AppointmentWithRelations } from "@/types";
 import type { Role } from "@/generated/prisma/client";
 
@@ -92,64 +94,103 @@ export function DashboardClient({ role, dentists, stats }: Props) {
 
   return (
     <div className="h-full flex flex-col overflow-hidden bg-white">
-      {/* Stats + filter bar */}
-      <div className="flex items-center justify-between px-5 py-2.5 border-b border-gray-200 shrink-0 bg-white">
-        <div className="flex items-center gap-5">
+      {/* Analytics header — full charts for ADMIN/RECEPTIONIST */}
+      {(role === "ADMIN" || role === "RECEPTIONIST") ? (
+        <div className="shrink-0 flex items-center border-b border-gray-200 bg-white">
+          <DashboardAnalytics
+            apptToday={stats.apptToday}
+            apptPending={stats.apptPending}
+            totalPatients={stats.totalPatients}
+          />
+          {canFilter && dentists.length > 0 && (
+            <div className="px-4 shrink-0">
+              <select
+                value={selectedDentist}
+                onChange={(e) => setSelectedDentist(e.target.value)}
+                className="text-sm text-gray-900 border border-gray-200 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 hover:border-gray-300 transition-colors cursor-pointer"
+              >
+                <option value="">Todos os dentistas</option>
+                {dentists.map((d) => (
+                  <option key={d.id} value={d.id}>{d.user.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Simple pills for DENTIST / PATIENT */
+        <div className="flex items-center gap-5 px-5 py-2.5 border-b border-gray-200 shrink-0 bg-white">
           <StatPill label="Hoje"      value={stats.apptToday}   bg="bg-indigo-100"  color="text-indigo-700" />
           <StatPill label="7 dias"    value={stats.apptWeek}    bg="bg-violet-100"  color="text-violet-700" />
           <StatPill label="Pendentes" value={stats.apptPending} bg="bg-amber-100"   color="text-amber-700" />
-          {stats.totalPatients !== null && (
-            <StatPill label="Pacientes" value={stats.totalPatients} bg="bg-emerald-100" color="text-emerald-700" />
-          )}
         </div>
-
-        {canFilter && dentists.length > 0 && (
-          <select
-            value={selectedDentist}
-            onChange={(e) => setSelectedDentist(e.target.value)}
-            className="text-sm text-gray-900 border border-gray-200 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 hover:border-gray-300 transition-colors cursor-pointer"
-          >
-            <option value="">Todos os dentistas</option>
-            {dentists.map((d) => (
-              <option key={d.id} value={d.id}>{d.user.name}</option>
-            ))}
-          </select>
-        )}
-      </div>
+      )}
 
       {/* Calendar + detail panel */}
-      <div className="flex flex-1 overflow-hidden">
-        {selectedDay ? (
-          <DayDetailView
-            day={selectedDay}
-            appointments={appointments}
-            loading={loading}
-            onBack={() => setSelectedDay(null)}
-            onDayChange={handleDayChange}
-            onAppointmentClick={setSelected}
-            selectedId={selected?.id}
-          />
-        ) : (
-          <WeekCalendar
-            appointments={appointments}
-            weekStart={weekStart}
-            loading={loading}
-            onNavigate={setWeekStart}
-            onAppointmentClick={setSelected}
-            onDayClick={setSelectedDay}
-            selectedId={selected?.id}
-          />
-        )}
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Week / Day views — crossfade on switch */}
+        <AnimatePresence mode="wait" initial={false}>
+          {selectedDay ? (
+            <motion.div
+              key="day"
+              className="flex-1 flex flex-col overflow-hidden min-w-0"
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 24 }}
+              transition={{ duration: 0.18, ease: [0.25, 0.46, 0.45, 0.94] }}
+            >
+              <DayDetailView
+                day={selectedDay}
+                appointments={appointments}
+                loading={loading}
+                onBack={() => setSelectedDay(null)}
+                onDayChange={handleDayChange}
+                onAppointmentClick={setSelected}
+                selectedId={selected?.id}
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="week"
+              className="flex-1 flex flex-col overflow-hidden min-w-0"
+              initial={{ opacity: 0, x: -24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -24 }}
+              transition={{ duration: 0.18, ease: [0.25, 0.46, 0.45, 0.94] }}
+            >
+              <WeekCalendar
+                appointments={appointments}
+                weekStart={weekStart}
+                loading={loading}
+                onNavigate={setWeekStart}
+                onAppointmentClick={setSelected}
+                onDayClick={setSelectedDay}
+                selectedId={selected?.id}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {selected && (
-          <AppointmentDetailPanel
-            appointment={selected}
-            onClose={() => setSelected(null)}
-            onUpdated={handleUpdated}
-            canChangeStatus={canChangeStatus}
-            canReschedule={canReschedule}
-          />
-        )}
+        {/* Detail panel — springs in as right-side overlay */}
+        <AnimatePresence>
+          {selected && (
+            <motion.div
+              className="absolute right-0 top-0 h-full z-10"
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", stiffness: 400, damping: 38, mass: 0.8 }}
+            >
+              <AppointmentDetailPanel
+                appointment={selected}
+                onClose={() => setSelected(null)}
+                onUpdated={handleUpdated}
+                canChangeStatus={canChangeStatus}
+                canReschedule={canReschedule}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
