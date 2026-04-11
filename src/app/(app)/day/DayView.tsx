@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useServerTime } from "@/hooks/useServerTime";
+import { getAppointmentDateTime } from "@/lib/time";
 import { useRouter, useSearchParams } from "next/navigation";
 import { STATUS_BG_SOLID, STATUS_LABELS } from "@/types";
 import type { AppointmentWithRelations, DentistWithUser } from "@/types";
@@ -36,6 +38,13 @@ export function DayView({ dentists, role }: Props) {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<AppointmentWithRelations | null>(null);
   const [newApptPrefill, setNewApptPrefill] = useState<NewApptPrefill | null>(null);
+
+  const now = useServerTime();
+  const isViewingToday = isToday(parseISO(dateParam));
+  const nowY = (() => {
+    const h = now.getUTCHours() + now.getUTCMinutes() / 60;
+    return (h - CLINIC_START) * SLOT_HEIGHT;
+  })();
 
   const canCreate = role === "ADMIN" || role === "RECEPTIONIST";
   const canChangeStatus = role !== "PATIENT";
@@ -174,18 +183,30 @@ export function DayView({ dentists, role }: Props) {
                       />
                     ))}
 
+                    {/* Current-time indicator — today only */}
+                    {isViewingToday && nowY >= 0 && nowY <= TOTAL_HOURS * SLOT_HEIGHT && (
+                      <div
+                        className="absolute left-0 right-0 z-20 pointer-events-none flex items-center"
+                        style={{ top: nowY }}
+                      >
+                        <div className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                        <div className="flex-1 border-t-2 border-rose-500" />
+                      </div>
+                    )}
+
                     {/* Appointment blocks */}
                     {dentistAppts.map((appt) => {
                       const top = timeToY(appt.startTime);
                       const height = heightFor(appt.startTime, appt.endTime);
                       const colorClass = STATUS_BG_SOLID[appt.status as AppointmentStatus];
+                      const isPast = getAppointmentDateTime(appt.date, appt.startTime) < now;
 
                       return (
                         <button
                           key={appt.id}
                           data-appt="true"
                           onClick={(e) => { e.stopPropagation(); setSelected(appt); }}
-                          className={`absolute left-1 right-1 rounded-md text-white text-left px-2 py-1 overflow-hidden ${colorClass} hover:brightness-110 transition-all shadow-sm z-10`}
+                          className={`absolute left-1 right-1 rounded-md text-white text-left px-2 py-1 overflow-hidden ${colorClass} hover:brightness-110 transition-all shadow-sm z-10 ${isPast ? "opacity-50 grayscale" : ""}`}
                           style={{ top, height: Math.max(height - 2, 18) }}
                           title={`${appt.patient.user.name} — ${STATUS_LABELS[appt.status as AppointmentStatus]}`}
                         >

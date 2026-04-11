@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { format, addDays, startOfWeek } from "date-fns";
 import { WeekCalendar } from "@/components/calendar/WeekCalendar";
+import { DayDetailView } from "@/components/calendar/DayDetailView";
 import { AppointmentDetailPanel } from "@/components/appointments/AppointmentDetailPanel";
 import type { AppointmentWithRelations } from "@/types";
 import type { Role } from "@/generated/prisma/client";
@@ -52,6 +53,7 @@ export function DashboardClient({ role, dentists, stats }: Props) {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<AppointmentWithRelations | null>(null);
   const [selectedDentist, setSelectedDentist] = useState("");
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
 
   const canFilter = role === "ADMIN" || role === "RECEPTIONIST";
   const canChangeStatus = role !== "PATIENT";
@@ -76,6 +78,16 @@ export function DashboardClient({ role, dentists, stats }: Props) {
   function handleUpdated(updated: AppointmentWithRelations) {
     setAppointments((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
     setSelected(updated);
+  }
+
+  function handleDayChange(newDay: Date) {
+    setSelectedDay(newDay);
+    // If new day falls outside the fetched week, slide the week view to cover it
+    const newMonday = startOfWeek(newDay, { weekStartsOn: 1 });
+    const currentEnd = addDays(weekStart, 6);
+    if (newDay < weekStart || newDay > currentEnd) {
+      setWeekStart(newMonday);
+    }
   }
 
   return (
@@ -107,14 +119,27 @@ export function DashboardClient({ role, dentists, stats }: Props) {
 
       {/* Calendar + detail panel */}
       <div className="flex flex-1 overflow-hidden">
-        <WeekCalendar
-          appointments={appointments}
-          weekStart={weekStart}
-          loading={loading}
-          onNavigate={setWeekStart}
-          onAppointmentClick={setSelected}
-          selectedId={selected?.id}
-        />
+        {selectedDay ? (
+          <DayDetailView
+            day={selectedDay}
+            appointments={appointments}
+            loading={loading}
+            onBack={() => setSelectedDay(null)}
+            onDayChange={handleDayChange}
+            onAppointmentClick={setSelected}
+            selectedId={selected?.id}
+          />
+        ) : (
+          <WeekCalendar
+            appointments={appointments}
+            weekStart={weekStart}
+            loading={loading}
+            onNavigate={setWeekStart}
+            onAppointmentClick={setSelected}
+            onDayClick={setSelectedDay}
+            selectedId={selected?.id}
+          />
+        )}
 
         {selected && (
           <AppointmentDetailPanel

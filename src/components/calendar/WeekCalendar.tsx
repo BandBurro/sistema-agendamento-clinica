@@ -5,6 +5,8 @@ import { format, addDays, isSameDay, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { AppointmentWithRelations } from "@/types";
 import type { AppointmentStatus } from "@/generated/prisma/client";
+import { useServerTime } from "@/hooks/useServerTime";
+import { getAppointmentDateTime } from "@/lib/time";
 
 const START_HOUR = 7;
 const END_HOUR = 21;
@@ -33,6 +35,7 @@ interface Props {
   loading: boolean;
   onNavigate: (newWeekStart: Date) => void;
   onAppointmentClick: (appt: AppointmentWithRelations) => void;
+  onDayClick?: (day: Date) => void;
   selectedId?: string;
 }
 
@@ -42,8 +45,10 @@ export function WeekCalendar({
   loading,
   onNavigate,
   onAppointmentClick,
+  onDayClick,
   selectedId,
 }: Props) {
+  const now = useServerTime();
   const days = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
     [weekStart]
@@ -120,23 +125,26 @@ export function WeekCalendar({
         {days.map((day, i) => {
           const today = isToday(day);
           return (
-            <div
+            <button
               key={i}
-              className={`flex-1 py-2 text-center border-l border-gray-200 first:border-l-0 ${today ? "bg-indigo-50/40" : ""}`}
+              onClick={() => onDayClick?.(day)}
+              className={`flex-1 py-2 text-center border-l border-gray-200 first:border-l-0 transition-colors ${
+                today ? "bg-indigo-50/40" : ""
+              } ${onDayClick ? "cursor-pointer hover:bg-indigo-50/60 group" : "cursor-default"}`}
             >
               <p className={`text-xs font-semibold uppercase tracking-wide ${today ? "text-indigo-600" : "text-gray-400"}`}>
                 {format(day, "EEE", { locale: ptBR })}
               </p>
               <span
-                className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-bold mt-0.5 ${
+                className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-bold mt-0.5 transition-colors ${
                   today
                     ? "bg-indigo-600 text-white"
-                    : "text-gray-700"
+                    : "text-gray-700 group-hover:bg-indigo-100"
                 }`}
               >
                 {format(day, "d")}
               </span>
-            </div>
+            </button>
           );
         })}
       </div>
@@ -186,17 +194,34 @@ export function WeekCalendar({
                   />
                 ))}
 
+                {/* Current-time indicator — today's column only */}
+                {today && (() => {
+                  const nowTop = (now.getUTCHours() + now.getUTCMinutes() / 60 - START_HOUR) * HOUR_HEIGHT;
+                  if (nowTop < 0 || nowTop > TOTAL_HEIGHT) return null;
+                  return (
+                    <div
+                      key="now-line"
+                      className="absolute left-0 right-0 z-20 pointer-events-none flex items-center"
+                      style={{ top: nowTop }}
+                    >
+                      <div className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                      <div className="flex-1 border-t-2 border-rose-500" />
+                    </div>
+                  );
+                })()}
+
                 {/* Appointment blocks */}
                 {dayAppts.map((appt) => {
                   const { top, height } = getBlockPosition(appt);
                   const isSelected = appt.id === selectedId;
+                  const isPast = getAppointmentDateTime(appt.date, appt.startTime) < now;
                   return (
                     <button
                       key={appt.id}
                       style={{ position: "absolute", top, height, left: 3, right: 3 }}
                       className={`rounded border-l-[3px] px-2 py-0.5 text-left overflow-hidden cursor-pointer transition-all z-10 ${BLOCK_STYLES[appt.status]} ${
                         isSelected ? "ring-2 ring-indigo-400 ring-inset" : ""
-                      }`}
+                      } ${isPast ? "opacity-50 grayscale" : ""}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         onAppointmentClick(appt);
