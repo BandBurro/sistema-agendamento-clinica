@@ -1,36 +1,69 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { registerSchema } from "@/lib/validations/auth";
+import { sendVerificationEmail } from "@/services/email";
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { name, email, password, phone, dateOfBirth } = body;
+    // Rate-limit registrations per IP (5 per 15 minutes)
+    const ip =
+      req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
+      req.headers.get("x-real-ip") ??
+      "unknown";
 
-    if (!name || !email || !password || !phone || !dateOfBirth) {
-      return NextResponse.json({ error: "Todos os campos são obrigatórios." }, { status: 400 });
-    }
-
-    if (password.length < 6) {
+    const rl = checkRateLimit(`register:${ip}`, 5, 15 * 60 * 1000);
+    if (!rl.allowed) {
       return NextResponse.json(
-        { error: "A senha deve ter pelo menos 6 caracteres." },
-        { status: 400 }
+        {
+          error: `Muitas tentativas de cadastro. Tente novamente em ${rl.retryAfterSeconds} segundos.`,
+        },
+        { status: 429 },
       );
     }
 
+    // Validate with Zod (confirmPassword is stripped before DB write)
+    const body = await req.json();
+    const parsed = registerSchema.safeParse(body);
+
+    if (!parsed.success) {
+      const fields = parsed.error.flatten().fieldErrors;
+      // Return the first validation message found
+      const first = Object.values(fields).flat()[0];
+      return NextResponse.json(
+        { error: first ?? "Dados inválidos.", fields },
+        { status: 400 },
+      );
+    }
+
+    const { name, email, password, phone, dateOfBirth } = parsed.data;
+
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
-      return NextResponse.json({ error: "Este email já está em uso." }, { status: 409 });
+      return NextResponse.json(
+        { error: "Este email já está em uso." },
+        { status: 409 },
+      );
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    const user = await prisma.user.create({
+    // Generate a 64-char hex verification token, expires in 24 hours
+    const verifyToken = randomBytes(32).toString("hex");
+    const verifyTokenExp = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await prisma.user.create({
       data: {
         name,
         email,
         password: hashedPassword,
         role: "PATIENT",
+        active: false,        // activated after email verification
+        emailVerified: false,
+        verifyToken,
+        verifyTokenExp,
         patient: {
           create: {
             phone,
@@ -38,10 +71,18 @@ export async function POST(req: NextRequest) {
           },
         },
       },
-      select: { id: true, name: true, email: true, role: true },
     });
 
-    return NextResponse.json(user, { status: 201 });
+    // Send (mock) verification email
+    const { devLink } = await sendVerificationEmail(email, name, verifyToken);
+
+    return NextResponse.json(
+      {
+        message: "Conta criada. Verifique seu email para ativar o acesso.",
+        ...(devLink ? { devVerifyLink: devLink } : {}),
+      },
+      { status: 201 },
+    );
   } catch (err) {
     console.error("[register]", err);
     return NextResponse.json({ error: "Erro interno do servidor." }, { status: 500 });

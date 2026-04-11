@@ -1,63 +1,74 @@
-// Tests for registration validation logic (extracted from the API route)
+import { registerSchema } from "@/lib/validations/auth";
 
-function validateRegistration(body: Record<string, unknown>) {
-  const { name, email, password, phone, dateOfBirth } = body;
+const validData = {
+  name: "João Lima",
+  email: "joao@test.com",
+  password: "Password1",
+  confirmPassword: "Password1",
+  phone: "+5511999990001",
+  dateOfBirth: "1990-01-01",
+};
 
-  if (!name || !email || !password || !phone || !dateOfBirth) {
-    return { valid: false, error: "Todos os campos são obrigatórios." };
-  }
-
-  if (typeof password === "string" && password.length < 6) {
-    return { valid: false, error: "A senha deve ter pelo menos 6 caracteres." };
-  }
-
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (typeof email === "string" && !emailRegex.test(email)) {
-    return { valid: false, error: "Email inválido." };
-  }
-
-  return { valid: true, error: null };
-}
-
-describe("validateRegistration", () => {
-  it("rejects missing fields", () => {
-    expect(validateRegistration({}).valid).toBe(false);
-    expect(validateRegistration({ name: "João" }).valid).toBe(false);
-    expect(validateRegistration({ name: "João", email: "a@b.com" }).valid).toBe(false);
+describe("registerSchema", () => {
+  it("accepts valid registration data", () => {
+    const result = registerSchema.safeParse(validData);
+    expect(result.success).toBe(true);
   });
 
-  it("rejects password shorter than 6 chars", () => {
-    const result = validateRegistration({
-      name: "João",
-      email: "joao@test.com",
-      password: "123",
-      phone: "+5511999990001",
-      dateOfBirth: "1990-01-01",
-    });
-    expect(result.valid).toBe(false);
-    expect(result.error).toMatch(/senha/i);
+  it("rejects missing required fields", () => {
+    expect(registerSchema.safeParse({}).success).toBe(false);
+    expect(registerSchema.safeParse({ name: "João" }).success).toBe(false);
+    expect(registerSchema.safeParse({ ...validData, email: "" }).success).toBe(false);
+    expect(registerSchema.safeParse({ ...validData, password: "" }).success).toBe(false);
+  });
+
+  it("rejects password shorter than 8 characters", () => {
+    const result = registerSchema.safeParse({ ...validData, password: "Pass1", confirmPassword: "Pass1" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const msgs = result.error.flatten().fieldErrors.password ?? [];
+      expect(msgs.some((m) => /8/i.test(m))).toBe(true);
+    }
+  });
+
+  it("rejects password without an uppercase letter", () => {
+    const result = registerSchema.safeParse({ ...validData, password: "password1", confirmPassword: "password1" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const msgs = result.error.flatten().fieldErrors.password ?? [];
+      expect(msgs.some((m) => /maiúscula/i.test(m))).toBe(true);
+    }
+  });
+
+  it("rejects password without a number", () => {
+    const result = registerSchema.safeParse({ ...validData, password: "Passwordonly", confirmPassword: "Passwordonly" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const msgs = result.error.flatten().fieldErrors.password ?? [];
+      expect(msgs.some((m) => /número/i.test(m))).toBe(true);
+    }
+  });
+
+  it("rejects mismatched confirm password", () => {
+    const result = registerSchema.safeParse({ ...validData, confirmPassword: "Different1" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const msgs = result.error.flatten().fieldErrors.confirmPassword ?? [];
+      expect(msgs.some((m) => /conferem/i.test(m))).toBe(true);
+    }
   });
 
   it("rejects invalid email format", () => {
-    const result = validateRegistration({
-      name: "João",
-      email: "not-an-email",
-      password: "password123",
-      phone: "+5511999990001",
-      dateOfBirth: "1990-01-01",
-    });
-    expect(result.valid).toBe(false);
+    const result = registerSchema.safeParse({ ...validData, email: "not-an-email" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const msgs = result.error.flatten().fieldErrors.email ?? [];
+      expect(msgs.length).toBeGreaterThan(0);
+    }
   });
 
-  it("accepts valid registration data", () => {
-    const result = validateRegistration({
-      name: "João Lima",
-      email: "joao@test.com",
-      password: "password123",
-      phone: "+5511999990001",
-      dateOfBirth: "1990-01-01",
-    });
-    expect(result.valid).toBe(true);
-    expect(result.error).toBeNull();
+  it("rejects name shorter than 2 characters", () => {
+    const result = registerSchema.safeParse({ ...validData, name: "J" });
+    expect(result.success).toBe(false);
   });
 });
