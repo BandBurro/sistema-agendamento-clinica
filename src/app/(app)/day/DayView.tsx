@@ -49,15 +49,16 @@ export function DayView({ dentists, role }: Props) {
   const canCreate = role === "ADMIN" || role === "RECEPTIONIST";
   const canChangeStatus = role !== "PATIENT";
 
+  const fetchAppointments = useCallback(async () => {
+    setLoading(true);
+    const res = await fetch(`/api/appointments?date=${dateParam}`);
+    if (res.ok) setAppointments(await res.json());
+    setLoading(false);
+  }, [dateParam, setLoading, setAppointments]);
+
   useEffect(() => {
-    async function fetchAppointments() {
-      setLoading(true);
-      const res = await fetch(`/api/appointments?date=${dateParam}`);
-      if (res.ok) setAppointments(await res.json());
-      setLoading(false);
-    }
     fetchAppointments();
-  }, [dateParam]);
+  }, [fetchAppointments]);
 
   function navigateDay(dir: 1 | -1) {
     const d = parseISO(dateParam);
