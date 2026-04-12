@@ -11,6 +11,7 @@ interface Props {
   appointment: AppointmentWithRelations;
   onClick: () => void;
   isDragging?: boolean;
+  isPast?: boolean;
 }
 
 const STATUS_BORDER: Record<AppointmentStatus, string> = {
@@ -21,7 +22,7 @@ const STATUS_BORDER: Record<AppointmentStatus, string> = {
   CANCELLED:   "border-l-red-300",
 };
 
-export function KanbanCard({ appointment, onClick, isDragging = false }: Props) {
+export function KanbanCard({ appointment, onClick, isDragging = false, isPast = false }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging: isSortableDragging } =
     useSortable({ id: appointment.id });
 
@@ -41,7 +42,7 @@ export function KanbanCard({ appointment, onClick, isDragging = false }: Props) 
         isDragging
           ? "shadow-2xl rotate-2 scale-105 border-gray-300"
           : "shadow-sm hover:shadow-lg hover:scale-[1.02] hover:border-gray-300 active:scale-[0.99] active:shadow-md"
-      }`}
+      } ${isPast ? "opacity-50 grayscale" : ""}`}
       onClick={(e) => {
         if (!isSortableDragging) {
           e.stopPropagation();

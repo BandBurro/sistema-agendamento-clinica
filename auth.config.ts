@@ -8,7 +8,9 @@ export const authConfig = {
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
-      const isPublic = ["/login", "/register"].some((p) => nextUrl.pathname.startsWith(p));
+      const isPublic = ["/login", "/register", "/verify-email"].some((p) =>
+        nextUrl.pathname.startsWith(p),
+      );
       if (isPublic) return true;
       return isLoggedIn;
     },

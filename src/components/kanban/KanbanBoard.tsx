@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { useServerTime } from "@/hooks/useServerTime";
+import { getAppointmentDateTime } from "@/lib/time";
 import {
   DndContext,
   DragEndEvent,
@@ -32,6 +34,7 @@ interface Props {
 }
 
 export function KanbanBoard({ dentists }: Props) {
+  const now = useServerTime();
   const [appointments, setAppointments] = useState<AppointmentWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -194,6 +197,7 @@ export function KanbanBoard({ dentists }: Props) {
                       key={appt.id}
                       appointment={appt}
                       onClick={() => setSelected(appt)}
+                      isPast={getAppointmentDateTime(appt.date, appt.startTime) < now}
                     />
                   ))}
                 </SortableContext>
