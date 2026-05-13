@@ -65,6 +65,13 @@ model Patient {
   phone        String
   dateOfBirth  DateTime
   medicalNotes String?
+  cep          String?
+  logradouro   String?
+  numero       String?
+  complemento  String?
+  bairro       String?
+  cidade       String?
+  uf           String?   @db.Char(2)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 

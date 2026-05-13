@@ -12,6 +12,21 @@ export const registerSchema = z
     confirmPassword: z.string().min(1, "Confirme sua senha"),
     phone: z.string().min(10, "Telefone inválido"),
     dateOfBirth: z.string().min(1, "Data de nascimento obrigatória"),
+    cep: z
+      .string()
+      .regex(/^\d{5}-?\d{3}$/, "CEP inválido")
+      .optional()
+      .or(z.literal("")),
+    logradouro: z.string().optional(),
+    numero: z.string().optional(),
+    complemento: z.string().optional(),
+    bairro: z.string().optional(),
+    cidade: z.string().optional(),
+    uf: z
+      .string()
+      .regex(/^[A-Za-z]{2}$/, "UF inválida")
+      .optional()
+      .or(z.literal("")),
   })
   .refine((d) => d.password === d.confirmPassword, {
     message: "As senhas não conferem",
