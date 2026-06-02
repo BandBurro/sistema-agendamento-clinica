@@ -2,6 +2,10 @@
 
 Full-stack dental clinic scheduling and management system built with Next.js, PostgreSQL, and Tailwind CSS. University project.
 
+## Live Application
+
+**[https://sistema-agendamento-clinica-khkkjok1g-bandburros-projects.vercel.app/login](https://sistema-agendamento-clinica-khkkjok1g-bandburros-projects.vercel.app/login)**
+
 ## Tech Stack
 
 | Layer | Technology |

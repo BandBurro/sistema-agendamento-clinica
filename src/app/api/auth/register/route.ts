@@ -38,7 +38,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { name, email, password, phone, dateOfBirth } = parsed.data;
+    const {
+      name,
+      email,
+      password,
+      phone,
+      dateOfBirth,
+      cep,
+      logradouro,
+      numero,
+      complemento,
+      bairro,
+      cidade,
+      uf,
+    } = parsed.data;
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
@@ -54,6 +67,9 @@ export async function POST(req: NextRequest) {
     const verifyToken = randomBytes(32).toString("hex");
     const verifyTokenExp = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
+    const cepDigits = cep ? cep.replace(/\D/g, "") : "";
+    const blankToNull = (v: string | undefined) => (v && v.trim() ? v.trim() : null);
+
     await prisma.user.create({
       data: {
         name,
@@ -68,6 +84,13 @@ export async function POST(req: NextRequest) {
           create: {
             phone,
             dateOfBirth: new Date(dateOfBirth),
+            cep: cepDigits.length === 8 ? cepDigits : null,
+            logradouro: blankToNull(logradouro),
+            numero: blankToNull(numero),
+            complemento: blankToNull(complemento),
+            bairro: blankToNull(bairro),
+            cidade: blankToNull(cidade),
+            uf: uf && uf.trim() ? uf.trim().toUpperCase() : null,
           },
         },
       },

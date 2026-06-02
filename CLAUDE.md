@@ -57,6 +57,12 @@ Status changes trigger WhatsApp notifications via the notification service. The 
 
 If the Evolution API is unreachable, log the error and continue — never break the appointment flow.
 
+### External Services
+
+`src/services/viacep.ts` — public ViaCEP API wrapper used during patient registration to auto-fill address fields from a Brazilian CEP. Public API, no secret required. Returns `null` on any failure (malformed CEP, not-found `{ erro: true }`, non-200 status, or network error) so the form falls back to manual entry.
+
+Address fields are persisted on the `Patient` model: `cep`, `logradouro`, `numero`, `complemento`, `bairro`, `cidade`, `uf`. All optional. The CEP is stored as 8 digits (no dash); `uf` is uppercase 2 letters. Empty strings from the form are normalized to `null` at the API boundary.
+
 ## Folder Structure
 
 ```

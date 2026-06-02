@@ -1,11 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { fetchAddressByCep } from "@/services/viacep";
 
 interface Props {
   onClose: () => void;
   onCreated: () => void;
 }
+
+type CepLookupStatus = "idle" | "loading" | "not-found";
 
 export function NewPatientModal({ onClose, onCreated }: Props) {
   const [form, setForm] = useState({
@@ -15,9 +18,40 @@ export function NewPatientModal({ onClose, onCreated }: Props) {
     phone: "",
     dateOfBirth: "",
     medicalNotes: "",
+    cep: "",
+    logradouro: "",
+    numero: "",
+    complemento: "",
+    bairro: "",
+    cidade: "",
+    uf: "",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [cepStatus, setCepStatus] = useState<CepLookupStatus>("idle");
+
+  async function handleCepBlur() {
+    const digits = form.cep.replace(/\D/g, "");
+    if (digits.length !== 8) {
+      setCepStatus("idle");
+      return;
+    }
+    setCepStatus("loading");
+    const address = await fetchAddressByCep(digits);
+    if (!address) {
+      setCepStatus("not-found");
+      return;
+    }
+    setForm((prev) => ({
+      ...prev,
+      logradouro: address.logradouro || prev.logradouro,
+      complemento: address.complemento || prev.complemento,
+      bairro: address.bairro || prev.bairro,
+      cidade: address.localidade || prev.cidade,
+      uf: address.uf || prev.uf,
+    }));
+    setCepStatus("idle");
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -117,6 +151,101 @@ export function NewPatientModal({ onClose, onCreated }: Props) {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
+
+            <fieldset className="space-y-3 pt-2 border-t border-gray-100">
+              <legend className="text-sm font-medium text-gray-700 pt-2">
+                Endereço <span className="text-gray-400 font-normal">(opcional)</span>
+              </legend>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">CEP</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={form.cep}
+                  onChange={(e) => {
+                    setForm((f) => ({ ...f, cep: e.target.value }));
+                    if (cepStatus !== "idle") setCepStatus("idle");
+                  }}
+                  onBlur={handleCepBlur}
+                  placeholder="01310-100"
+                  maxLength={9}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                {cepStatus === "loading" && (
+                  <p className="mt-1 text-xs text-gray-400">Buscando endereço…</p>
+                )}
+                {cepStatus === "not-found" && (
+                  <p className="mt-1 text-xs text-amber-600">
+                    CEP não encontrado — preencha os campos manualmente.
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Logradouro</label>
+                  <input
+                    type="text"
+                    value={form.logradouro}
+                    onChange={(e) => setForm((f) => ({ ...f, logradouro: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Número</label>
+                  <input
+                    type="text"
+                    value={form.numero}
+                    onChange={(e) => setForm((f) => ({ ...f, numero: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Complemento</label>
+                <input
+                  type="text"
+                  value={form.complemento}
+                  onChange={(e) => setForm((f) => ({ ...f, complemento: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Bairro</label>
+                <input
+                  type="text"
+                  value={form.bairro}
+                  onChange={(e) => setForm((f) => ({ ...f, bairro: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Cidade</label>
+                  <input
+                    type="text"
+                    value={form.cidade}
+                    onChange={(e) => setForm((f) => ({ ...f, cidade: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">UF</label>
+                  <input
+                    type="text"
+                    value={form.uf}
+                    onChange={(e) => setForm((f) => ({ ...f, uf: e.target.value.toUpperCase() }))}
+                    maxLength={2}
+                    placeholder="SP"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+            </fieldset>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">

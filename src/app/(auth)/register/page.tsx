@@ -3,8 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { registerSchema } from "@/lib/validations/auth";
+import { fetchAddressByCep } from "@/services/viacep";
 
 type FieldErrors = Partial<Record<string, string>>;
+
+type CepLookupStatus = "idle" | "loading" | "not-found";
 
 function getPasswordStrength(pwd: string): 0 | 1 | 2 | 3 {
   if (pwd.length === 0) return 0;
@@ -44,12 +47,20 @@ export default function RegisterPage() {
     confirmPassword: "",
     phone: "",
     dateOfBirth: "",
+    cep: "",
+    logradouro: "",
+    numero: "",
+    complemento: "",
+    bairro: "",
+    cidade: "",
+    uf: "",
   });
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [serverError, setServerError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [cepStatus, setCepStatus] = useState<CepLookupStatus>("idle");
 
   // Success state
   const [registered, setRegistered] = useState(false);
@@ -60,6 +71,29 @@ export default function RegisterPage() {
   function setField(key: keyof typeof form, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
     if (fieldErrors[key]) setFieldErrors((prev) => ({ ...prev, [key]: undefined }));
+  }
+
+  async function handleCepBlur() {
+    const digits = form.cep.replace(/\D/g, "");
+    if (digits.length !== 8) {
+      setCepStatus("idle");
+      return;
+    }
+    setCepStatus("loading");
+    const address = await fetchAddressByCep(digits);
+    if (!address) {
+      setCepStatus("not-found");
+      return;
+    }
+    setForm((prev) => ({
+      ...prev,
+      logradouro: address.logradouro || prev.logradouro,
+      complemento: address.complemento || prev.complemento,
+      bairro: address.bairro || prev.bairro,
+      cidade: address.localidade || prev.cidade,
+      uf: address.uf || prev.uf,
+    }));
+    setCepStatus("idle");
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -353,6 +387,107 @@ export default function RegisterPage() {
                 <p className={fieldErrorClass}>{fieldErrors.dateOfBirth}</p>
               )}
             </div>
+
+            {/* Endereço */}
+            <fieldset className="space-y-3 pt-2 border-t border-gray-100">
+              <legend className="text-sm font-medium text-gray-700 pt-3">
+                Endereço <span className="text-gray-400 font-normal">(opcional)</span>
+              </legend>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">CEP</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={form.cep}
+                  onChange={(e) => {
+                    setField("cep", e.target.value);
+                    if (cepStatus !== "idle") setCepStatus("idle");
+                  }}
+                  onBlur={handleCepBlur}
+                  className={`${inputClass} ${fieldErrors.cep ? "border-red-300 focus:ring-red-400" : ""}`}
+                  placeholder="01310-100"
+                  maxLength={9}
+                />
+                {fieldErrors.cep && <p className={fieldErrorClass}>{fieldErrors.cep}</p>}
+                {cepStatus === "loading" && (
+                  <p className="mt-1 text-xs text-gray-400">Buscando endereço…</p>
+                )}
+                {cepStatus === "not-found" && (
+                  <p className="mt-1 text-xs text-amber-600">
+                    CEP não encontrado — você pode preencher os campos manualmente.
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Logradouro</label>
+                  <input
+                    type="text"
+                    value={form.logradouro}
+                    onChange={(e) => setField("logradouro", e.target.value)}
+                    className={inputClass}
+                    placeholder="Rua, avenida..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Número</label>
+                  <input
+                    type="text"
+                    value={form.numero}
+                    onChange={(e) => setField("numero", e.target.value)}
+                    className={inputClass}
+                    placeholder="123"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Complemento</label>
+                <input
+                  type="text"
+                  value={form.complemento}
+                  onChange={(e) => setField("complemento", e.target.value)}
+                  className={inputClass}
+                  placeholder="Apto, bloco..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Bairro</label>
+                <input
+                  type="text"
+                  value={form.bairro}
+                  onChange={(e) => setField("bairro", e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Cidade</label>
+                  <input
+                    type="text"
+                    value={form.cidade}
+                    onChange={(e) => setField("cidade", e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">UF</label>
+                  <input
+                    type="text"
+                    value={form.uf}
+                    onChange={(e) => setField("uf", e.target.value.toUpperCase())}
+                    className={`${inputClass} ${fieldErrors.uf ? "border-red-300 focus:ring-red-400" : ""}`}
+                    placeholder="SP"
+                    maxLength={2}
+                  />
+                  {fieldErrors.uf && <p className={fieldErrorClass}>{fieldErrors.uf}</p>}
+                </div>
+              </div>
+            </fieldset>
 
             {serverError && (
               <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3.5 py-2.5">

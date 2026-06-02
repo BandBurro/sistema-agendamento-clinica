@@ -20,7 +20,21 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { name, email, password, phone, dateOfBirth, medicalNotes } = body;
+    const {
+      name,
+      email,
+      password,
+      phone,
+      dateOfBirth,
+      medicalNotes,
+      cep,
+      logradouro,
+      numero,
+      complemento,
+      bairro,
+      cidade,
+      uf,
+    } = body;
 
     if (!name || !email || !password || !phone || !dateOfBirth) {
       return NextResponse.json({ error: "Campos obrigatórios ausentes." }, { status: 400 });
@@ -34,6 +48,12 @@ export async function POST(req: NextRequest) {
     const bcrypt = await import("bcryptjs");
     const hashedPassword = await bcrypt.hash(password, 12);
 
+    const blankToNull = (v: unknown) =>
+      typeof v === "string" && v.trim() ? v.trim() : null;
+    const cepDigits = typeof cep === "string" ? cep.replace(/\D/g, "") : "";
+    const ufClean =
+      typeof uf === "string" && uf.trim() ? uf.trim().toUpperCase() : null;
+
     const user = await prisma.user.create({
       data: {
         name,
@@ -41,7 +61,18 @@ export async function POST(req: NextRequest) {
         password: hashedPassword,
         role: "PATIENT",
         patient: {
-          create: { phone, dateOfBirth: new Date(dateOfBirth), medicalNotes },
+          create: {
+            phone,
+            dateOfBirth: new Date(dateOfBirth),
+            medicalNotes: blankToNull(medicalNotes),
+            cep: cepDigits.length === 8 ? cepDigits : null,
+            logradouro: blankToNull(logradouro),
+            numero: blankToNull(numero),
+            complemento: blankToNull(complemento),
+            bairro: blankToNull(bairro),
+            cidade: blankToNull(cidade),
+            uf: ufClean && /^[A-Z]{2}$/.test(ufClean) ? ufClean : null,
+          },
         },
       },
       include: { patient: true },
