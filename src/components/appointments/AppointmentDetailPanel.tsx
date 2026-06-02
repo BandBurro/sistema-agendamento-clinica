@@ -4,6 +4,8 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { utcDateToLocal } from "@/lib/time";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { STATUS_LABELS, VALID_TRANSITIONS } from "@/types";
 import type { AppointmentWithRelations } from "@/types";
@@ -110,7 +112,7 @@ export function AppointmentDetailPanel({
         <div>
           <h3 className="text-sm font-semibold text-gray-900">Detalhes do Agendamento</h3>
           <p className="text-xs text-gray-400 mt-0.5 capitalize">
-            {format(new Date(appointment.date), "EEEE, d 'de' MMMM", { locale: ptBR })}
+            {format(utcDateToLocal(appointment.date), "EEEE, d 'de' MMMM", { locale: ptBR })}
           </p>
         </div>
         <button
@@ -204,7 +206,7 @@ export function AppointmentDetailPanel({
                 <p className="text-xs text-gray-400 uppercase tracking-wide">Reagendar</p>
                 <div>
                   <label className="block text-xs text-gray-600 mb-1">Data</label>
-                  <input type="date" value={rescheduleDate} onChange={(e) => setRescheduleDate(e.target.value)} required className={inputClass} />
+                  <DatePicker value={rescheduleDate} onChange={setRescheduleDate} required />
                 </div>
                 <div className="flex gap-2">
                   <div className="flex-1">
