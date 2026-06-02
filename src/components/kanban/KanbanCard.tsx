@@ -5,6 +5,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { AppointmentWithRelations } from "@/types";
+import { utcDateToLocal } from "@/lib/time";
 import type { AppointmentStatus } from "@/generated/prisma/client";
 
 interface Props {
@@ -60,7 +61,7 @@ export function KanbanCard({ appointment, onClick, isDragging = false, isPast = 
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
         <span className="text-xs text-gray-400">
-          {format(new Date(appointment.date), "d MMM", { locale: ptBR })}
+          {format(utcDateToLocal(appointment.date), "d MMM", { locale: ptBR })}
         </span>
         <span className="text-gray-200">·</span>
         <svg className="w-3 h-3 text-gray-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

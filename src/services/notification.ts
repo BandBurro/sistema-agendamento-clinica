@@ -4,6 +4,7 @@ import type { AppointmentStatus } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { utcDateToLocal } from "@/lib/time";
 
 const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL;
 const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY;
@@ -46,7 +47,7 @@ async function logNotification(
 }
 
 function formatAppointmentDate(appointment: AppointmentWithRelations): string {
-  return format(new Date(appointment.date), "EEEE, d 'de' MMMM", { locale: ptBR });
+  return format(utcDateToLocal(appointment.date), "EEEE, d 'de' MMMM", { locale: ptBR });
 }
 
 function formatTime(time: Date): string {

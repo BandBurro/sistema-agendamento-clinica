@@ -9,6 +9,16 @@
  * directly compared against Date.now() / useServerTime() regardless of
  * the browser's UTC offset.
  */
+/**
+ * Converts a UTC-midnight Date (as stored/returned by Prisma @db.Date) into a
+ * local-time Date with the same calendar day, so date-fns formatters don't
+ * shift it back by the UTC offset.
+ */
+export function utcDateToLocal(date: Date | string): Date {
+  const d = new Date(date);
+  return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+
 export function getAppointmentDateTime(
   date: Date | string,
   startTime: Date | string,
