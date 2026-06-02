@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/DatePicker";
 import type { DentistWithUser, PatientWithUser } from "@/types";
 
 interface Props {
@@ -62,6 +63,7 @@ export function NewAppointmentModal({ dentists, prefill, onClose, onCreated }: P
 
       onCreated();
       onClose();
+      window.dispatchEvent(new Event("appointment:created"));
       toast.success("Agendamento criado com sucesso.");
     } catch {
       setError("Erro de conexão.");
@@ -115,13 +117,7 @@ export function NewAppointmentModal({ dentists, prefill, onClose, onCreated }: P
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Data</label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
+            <DatePicker value={date} onChange={setDate} required />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
