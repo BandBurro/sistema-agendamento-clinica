@@ -9,6 +9,11 @@
  * directly compared against Date.now() / useServerTime() regardless of
  * the browser's UTC offset.
  */
+export function utcDateToLocal(date: Date | string): Date {
+  const d = new Date(date);
+  return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+
 export function getAppointmentDateTime(
   date: Date | string,
   startTime: Date | string,
