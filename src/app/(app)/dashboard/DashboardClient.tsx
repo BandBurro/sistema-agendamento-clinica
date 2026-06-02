@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { format, addDays, startOfWeek } from "date-fns";
 import { AnimatePresence, motion } from "framer-motion";
 import { WeekCalendar } from "@/components/calendar/WeekCalendar";
@@ -63,7 +63,7 @@ export function DashboardClient({ role, dentists, stats }: Props) {
     startTime: string;
     endTime: string;
   } | null>(null);
-  const dentistsForModalRef = useRef<DentistWithUser[]>([]);
+  const [dentistsForModal, setDentistsForModal] = useState<DentistWithUser[]>([]);
 
   const canFilter = role === "ADMIN" || role === "RECEPTIONIST";
   const canChangeStatus = role !== "PATIENT";
@@ -129,13 +129,12 @@ export function DashboardClient({ role, dentists, stats }: Props) {
   }
 
   async function handleCreateRequest(date: string, startTime: string, endTime: string) {
-    let dents = dentistsForModalRef.current;
+    let dents = dentistsForModal;
     if (dents.length === 0) {
       const res = await fetch("/api/dentists");
-      if (res.ok) {
-        dents = await res.json();
-        dentistsForModalRef.current = dents;
-      }
+      if (!res.ok) return;
+      dents = await res.json();
+      setDentistsForModal(dents);
     }
     if (dents.length === 0) return;
     setNewApptPrefill({ dentistId: dents[0].id, date, startTime, endTime });
@@ -256,9 +255,9 @@ export function DashboardClient({ role, dentists, stats }: Props) {
       </div>
 
       {/* Create-by-drag modal */}
-      {newApptPrefill && dentistsForModalRef.current.length > 0 && (
+      {newApptPrefill && dentistsForModal.length > 0 && (
         <NewAppointmentModal
-          dentists={dentistsForModalRef.current}
+          dentists={dentistsForModal}
           prefill={newApptPrefill}
           onClose={() => setNewApptPrefill(null)}
           onCreated={() => setNewApptPrefill(null)}

@@ -19,6 +19,11 @@ const SLOT_HEIGHT = 60; // px per hour
 const PX_PER_MIN = SLOT_HEIGHT / 60;
 const SNAP = 15; // minutes
 
+function setCursorStyle(cursor: "" | "grabbing" | "ns-resize") {
+  document.body.style.cursor = cursor;
+  document.body.style.userSelect = cursor ? "none" : "";
+}
+
 interface NewApptPrefill {
   dentistId: string;
   date: string;
@@ -66,6 +71,7 @@ type DayViewDrag =
 type DayViewGhost = {
   kind: "create" | "reschedule";
   dentistId: string;
+  apptId?: string; // set for reschedule — lets render avoid reading dragRef.current
   top: number;
   height: number;
   startHHMM: string;
@@ -97,7 +103,7 @@ export function DayView({ dentists, role }: Props) {
     const res = await fetch(`/api/appointments?date=${dateParam}`);
     if (res.ok) setAppointments(await res.json());
     setLoading(false);
-  }, [dateParam]);
+  }, [dateParam, setLoading, setAppointments]);
 
   useEffect(() => {
     fetchAppointments();
@@ -129,9 +135,9 @@ export function DayView({ dentists, role }: Props) {
   const [ghost, setGhostState] = useState<DayViewGhost | null>(null);
   const columnRefs = useRef(new Map<string, HTMLDivElement>());
 
-  // Keep live values accessible from window event handlers
+  // Keep live values accessible from window event handlers without stale closures
   const liveRef = useRef({ appointments, dentists, canCreate, dateParam });
-  liveRef.current = { appointments, dentists, canCreate, dateParam };
+  useEffect(() => { liveRef.current = { appointments, dentists, canCreate, dateParam }; });
 
   function setGhost(g: DayViewGhost | null) {
     ghostRef.current = g;
@@ -163,8 +169,7 @@ export function DayView({ dentists, role }: Props) {
       endHHMM: minsToHHMM(snapped.minutes + SNAP),
     });
 
-    document.body.style.cursor = "ns-resize";
-    document.body.style.userSelect = "none";
+    setCursorStyle("ns-resize");
   }
 
   function handleApptMouseDown(e: React.MouseEvent, appt: AppointmentWithRelations) {
@@ -191,14 +196,14 @@ export function DayView({ dentists, role }: Props) {
     setGhost({
       kind: "reschedule",
       dentistId: appt.dentistId,
+      apptId: appt.id,
       top: apptTop,
       height: durationMins * PX_PER_MIN,
       startHHMM: format(new Date(appt.startTime), "HH:mm"),
       endHHMM: format(new Date(appt.endTime), "HH:mm"),
     });
 
-    document.body.style.cursor = "grabbing";
-    document.body.style.userSelect = "none";
+    setCursorStyle("grabbing");
   }
 
   useEffect(() => {
@@ -297,8 +302,7 @@ export function DayView({ dentists, role }: Props) {
       dragRef.current = null;
       ghostRef.current = null;
       setGhostState(null);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
+      setCursorStyle("");
     }
 
     window.addEventListener("mousemove", onMove);
@@ -411,7 +415,7 @@ export function DayView({ dentists, role }: Props) {
                       const isPast = getAppointmentDateTime(appt.date, appt.startTime) < now;
                       const isBeingDragged =
                         ghost?.kind === "reschedule" && ghost.dentistId === dentist.id &&
-                        dragRef.current?.kind === "reschedule" && dragRef.current.apptId === appt.id;
+                        ghost.apptId === appt.id;
 
                       return (
                         <button

@@ -10,7 +10,6 @@ import {
   eachDayOfInterval,
   isSameMonth,
   isToday,
-  isSameDay,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useRouter } from "next/navigation";

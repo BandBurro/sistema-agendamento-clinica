@@ -25,6 +25,11 @@ const BLOCK_STYLES: Record<AppointmentStatus, string> = {
   CANCELLED:   "bg-gray-100  border-l-gray-300   text-gray-400",
 };
 
+function setCursorStyle(cursor: "" | "grabbing" | "ns-resize") {
+  document.body.style.cursor = cursor;
+  document.body.style.userSelect = cursor ? "none" : "";
+}
+
 function formatHour(h: number): string {
   if (h === 0)  return "12am";
   if (h < 12)  return `${h}am`;
@@ -126,7 +131,7 @@ export function WeekCalendar({
 
   // Always-fresh ref so window event handlers read current values without stale closures
   const liveRef = useRef({ days, appointments, onAppointmentClick, onReschedule, onCreateRequest });
-  liveRef.current = { days, appointments, onAppointmentClick, onReschedule, onCreateRequest };
+  useEffect(() => { liveRef.current = { days, appointments, onAppointmentClick, onReschedule, onCreateRequest }; });
 
   function setGhost(g: Ghost | null) {
     ghostRef.current = g;
@@ -188,8 +193,7 @@ export function WeekCalendar({
       endHHMM: `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`,
     });
 
-    document.body.style.cursor = "grabbing";
-    document.body.style.userSelect = "none";
+    setCursorStyle("grabbing");
   }
 
   function handleColumnMouseDown(e: React.MouseEvent, dayIdx: number) {
@@ -214,8 +218,7 @@ export function WeekCalendar({
       endHHMM: minsToHHMM(snapped.minutes + SNAP),
     });
 
-    document.body.style.cursor = "ns-resize";
-    document.body.style.userSelect = "none";
+    setCursorStyle("ns-resize");
   }
 
   // Register window-level drag listeners once; read all live values from refs
@@ -285,8 +288,7 @@ export function WeekCalendar({
       dragRef.current = null;
       ghostRef.current = null;
       setGhostState(null);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
+      setCursorStyle("");
     }
 
     window.addEventListener("mousemove", onMove);
