@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { format, addDays, startOfWeek } from "date-fns";
 import { AnimatePresence, motion } from "framer-motion";
 import { WeekCalendar } from "@/components/calendar/WeekCalendar";
 import { DayDetailView } from "@/components/calendar/DayDetailView";
 import { AppointmentDetailPanel } from "@/components/appointments/AppointmentDetailPanel";
 import { DashboardAnalytics } from "@/components/dashboard/DashboardAnalytics";
-import type { AppointmentWithRelations } from "@/types";
+import { NewAppointmentModal } from "@/components/appointments/NewAppointmentModal";
+import type { AppointmentWithRelations, DentistWithUser } from "@/types";
 import type { Role } from "@/generated/prisma/client";
 
 interface Stats {
@@ -56,6 +57,13 @@ export function DashboardClient({ role, dentists, stats }: Props) {
   const [selected, setSelected] = useState<AppointmentWithRelations | null>(null);
   const [selectedDentist, setSelectedDentist] = useState("");
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [newApptPrefill, setNewApptPrefill] = useState<{
+    dentistId: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+  } | null>(null);
+  const dentistsForModalRef = useRef<DentistWithUser[]>([]);
 
   const canFilter = role === "ADMIN" || role === "RECEPTIONIST";
   const canChangeStatus = role !== "PATIENT";
@@ -77,14 +85,64 @@ export function DashboardClient({ role, dentists, stats }: Props) {
     fetchAppointments();
   }, [fetchAppointments]);
 
+  useEffect(() => {
+    window.addEventListener("appointment:created", fetchAppointments);
+    return () => window.removeEventListener("appointment:created", fetchAppointments);
+  }, [fetchAppointments]);
+
   function handleUpdated(updated: AppointmentWithRelations) {
     setAppointments((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
     setSelected(updated);
   }
 
+  async function handleReschedule(id: string, date: string, startTime: string, endTime: string) {
+    // Optimistic update so the ghost commits instantly
+    setAppointments((prev) =>
+      prev.map((a) =>
+        a.id !== id
+          ? a
+          : {
+              ...a,
+              date: date as unknown as Date,
+              startTime: new Date(`1970-01-01T${startTime}:00`) as unknown as Date,
+              endTime: new Date(`1970-01-01T${endTime}:00`) as unknown as Date,
+            }
+      )
+    );
+
+    try {
+      const res = await fetch(`/api/appointments/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date, startTime, endTime }),
+      });
+      if (!res.ok) {
+        fetchAppointments(); // revert on failure
+        return;
+      }
+      const updated: AppointmentWithRelations = await res.json();
+      setAppointments((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+      setSelected((prev) => (prev?.id === updated.id ? updated : prev));
+    } catch {
+      fetchAppointments();
+    }
+  }
+
+  async function handleCreateRequest(date: string, startTime: string, endTime: string) {
+    let dents = dentistsForModalRef.current;
+    if (dents.length === 0) {
+      const res = await fetch("/api/dentists");
+      if (res.ok) {
+        dents = await res.json();
+        dentistsForModalRef.current = dents;
+      }
+    }
+    if (dents.length === 0) return;
+    setNewApptPrefill({ dentistId: dents[0].id, date, startTime, endTime });
+  }
+
   function handleDayChange(newDay: Date) {
     setSelectedDay(newDay);
-    // If new day falls outside the fetched week, slide the week view to cover it
     const newMonday = startOfWeek(newDay, { weekStartsOn: 1 });
     const currentEnd = addDays(weekStart, 6);
     if (newDay < weekStart || newDay > currentEnd) {
@@ -94,7 +152,7 @@ export function DashboardClient({ role, dentists, stats }: Props) {
 
   return (
     <div className="h-full flex flex-col overflow-hidden bg-white">
-      {/* Analytics header — full charts for ADMIN/RECEPTIONIST */}
+      {/* Analytics header */}
       {(role === "ADMIN" || role === "RECEPTIONIST") ? (
         <div className="shrink-0 flex items-center border-b border-gray-200 bg-white">
           <DashboardAnalytics
@@ -118,7 +176,6 @@ export function DashboardClient({ role, dentists, stats }: Props) {
           )}
         </div>
       ) : (
-        /* Simple pills for DENTIST / PATIENT */
         <div className="flex items-center gap-5 px-5 py-2.5 border-b border-gray-200 shrink-0 bg-white">
           <StatPill label="Hoje"      value={stats.apptToday}   bg="bg-indigo-100"  color="text-indigo-700" />
           <StatPill label="7 dias"    value={stats.apptWeek}    bg="bg-violet-100"  color="text-violet-700" />
@@ -128,7 +185,6 @@ export function DashboardClient({ role, dentists, stats }: Props) {
 
       {/* Calendar + detail panel */}
       <div className="flex flex-1 overflow-hidden relative">
-        {/* Week / Day views — crossfade on switch */}
         <AnimatePresence mode="wait" initial={false}>
           {selectedDay ? (
             <motion.div
@@ -147,6 +203,9 @@ export function DashboardClient({ role, dentists, stats }: Props) {
                 onDayChange={handleDayChange}
                 onAppointmentClick={setSelected}
                 selectedId={selected?.id}
+                onReschedule={canReschedule ? handleReschedule : undefined}
+                onCreateRequest={canReschedule ? handleCreateRequest : undefined}
+                canInteract={canReschedule}
               />
             </motion.div>
           ) : (
@@ -166,12 +225,15 @@ export function DashboardClient({ role, dentists, stats }: Props) {
                 onAppointmentClick={setSelected}
                 onDayClick={setSelectedDay}
                 selectedId={selected?.id}
+                onReschedule={canReschedule ? handleReschedule : undefined}
+                onCreateRequest={canReschedule ? handleCreateRequest : undefined}
+                canInteract={canReschedule}
               />
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Detail panel — springs in as right-side overlay */}
+        {/* Detail panel */}
         <AnimatePresence>
           {selected && (
             <motion.div
@@ -192,6 +254,16 @@ export function DashboardClient({ role, dentists, stats }: Props) {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Create-by-drag modal */}
+      {newApptPrefill && dentistsForModalRef.current.length > 0 && (
+        <NewAppointmentModal
+          dentists={dentistsForModalRef.current}
+          prefill={newApptPrefill}
+          onClose={() => setNewApptPrefill(null)}
+          onCreated={() => setNewApptPrefill(null)}
+        />
+      )}
     </div>
   );
 }

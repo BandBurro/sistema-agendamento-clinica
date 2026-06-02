@@ -3,8 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { format } from "date-fns";
 import type { Role } from "@/generated/prisma/client";
+import type { DentistWithUser } from "@/types";
 import { NewPatientModal } from "./NewPatientModal";
+import { NewAppointmentModal } from "@/components/appointments/NewAppointmentModal";
 
 interface Props {
   role: Role;
@@ -61,9 +64,19 @@ const navLinks: NavLink[] = [
 export function Sidebar({ role }: Props) {
   const pathname = usePathname();
   const [showNewPatient, setShowNewPatient] = useState(false);
+  const [showNewAppt, setShowNewAppt] = useState(false);
+  const [dentists, setDentists] = useState<DentistWithUser[]>([]);
 
   const links = navLinks.filter((l) => l.roles.includes(role));
   const canRegisterPatient = role === "ADMIN" || role === "RECEPTIONIST";
+
+  async function openNewAppt() {
+    if (dentists.length === 0) {
+      const res = await fetch("/api/dentists");
+      if (res.ok) setDentists(await res.json());
+    }
+    setShowNewAppt(true);
+  }
 
   return (
     <>
@@ -89,10 +102,19 @@ export function Sidebar({ role }: Props) {
         </nav>
 
         {canRegisterPatient && (
-          <div className="px-3 pb-3 pt-2 border-t border-gray-200">
+          <div className="px-3 pb-3 pt-2 border-t border-gray-200 space-y-2">
+            <button
+              onClick={openNewAppt}
+              className="w-full flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-sm font-medium px-3 py-2 rounded-md transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+              </svg>
+              Nova Consulta
+            </button>
             <button
               onClick={() => setShowNewPatient(true)}
-              className="w-full flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-sm font-medium px-3 py-2 rounded-md transition-colors"
+              className="w-full flex items-center justify-center gap-1.5 bg-white hover:bg-gray-50 active:bg-gray-100 text-gray-700 border border-gray-300 text-sm font-medium px-3 py-2 rounded-md transition-colors"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
@@ -107,6 +129,20 @@ export function Sidebar({ role }: Props) {
         <NewPatientModal
           onClose={() => setShowNewPatient(false)}
           onCreated={() => setShowNewPatient(false)}
+        />
+      )}
+
+      {showNewAppt && dentists.length > 0 && (
+        <NewAppointmentModal
+          dentists={dentists}
+          prefill={{
+            dentistId: dentists[0].id,
+            date: format(new Date(), "yyyy-MM-dd"),
+            startTime: "09:00",
+            endTime: "10:00",
+          }}
+          onClose={() => setShowNewAppt(false)}
+          onCreated={() => setShowNewAppt(false)}
         />
       )}
     </>

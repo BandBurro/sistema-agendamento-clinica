@@ -54,8 +54,10 @@ export function MonthlyCalendar({ dentistFilter }: Props) {
   const calEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
   const days = eachDayOfInterval({ start: calStart, end: calEnd });
 
-  const getApptsForDay = (day: Date) =>
-    appointments.filter((a) => isSameDay(new Date(a.date), day));
+  const getApptsForDay = (day: Date) => {
+    const dayStr = format(day, "yyyy-MM-dd");
+    return appointments.filter((a) => String(a.date).slice(0, 10) === dayStr);
+  };
 
   function navigateMonth(dir: 1 | -1) {
     setCurrentDate((d) => {

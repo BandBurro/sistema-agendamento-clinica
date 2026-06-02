@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { format, parseISO, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useServerTime } from "@/hooks/useServerTime";
@@ -16,6 +16,8 @@ const CLINIC_START = 8;
 const CLINIC_END = 18;
 const TOTAL_HOURS = CLINIC_END - CLINIC_START;
 const SLOT_HEIGHT = 60; // px per hour
+const PX_PER_MIN = SLOT_HEIGHT / 60;
+const SNAP = 15; // minutes
 
 interface NewApptPrefill {
   dentistId: string;
@@ -28,6 +30,47 @@ interface Props {
   dentists: DentistWithUser[];
   role: Role;
 }
+
+function minsToHHMM(m: number): string {
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}
+
+// Snap a pixel Y within the column to a 15-min-aligned time
+function yToTime(y: number) {
+  const rawMins = (y / PX_PER_MIN) + CLINIC_START * 60;
+  const snapped = Math.round(rawMins / SNAP) * SNAP;
+  const clamped = Math.max(CLINIC_START * 60, Math.min(CLINIC_END * 60, snapped));
+  return {
+    minutes: clamped,
+    hhmm: minsToHHMM(clamped),
+    top: (clamped - CLINIC_START * 60) * PX_PER_MIN,
+  };
+}
+
+type DayViewDrag =
+  | {
+      kind: "create";
+      dentistId: string;
+      anchorY: number; // snapped top px from column top
+    }
+  | {
+      kind: "reschedule";
+      apptId: string;
+      dentistId: string;
+      durationMins: number;
+      grabOffsetY: number;
+      startClientX: number;
+      startClientY: number;
+    };
+
+type DayViewGhost = {
+  kind: "create" | "reschedule";
+  dentistId: string;
+  top: number;
+  height: number;
+  startHHMM: string;
+  endHHMM: string;
+};
 
 export function DayView({ dentists, role }: Props) {
   const router = useRouter();
@@ -54,7 +97,7 @@ export function DayView({ dentists, role }: Props) {
     const res = await fetch(`/api/appointments?date=${dateParam}`);
     if (res.ok) setAppointments(await res.json());
     setLoading(false);
-  }, [dateParam, setLoading, setAppointments]);
+  }, [dateParam]);
 
   useEffect(() => {
     fetchAppointments();
@@ -80,26 +123,191 @@ export function DayView({ dentists, role }: Props) {
     return Math.max((endH - startH) * SLOT_HEIGHT, 20);
   }
 
-  function handleSlotClick(dentistId: string, clickY: number) {
-    if (!canCreate) return;
-    // Snap to 30-min slots
-    const rawHour = CLINIC_START + clickY / SLOT_HEIGHT;
-    const snapped = Math.floor(rawHour * 2) / 2;
-    const startH = Math.floor(snapped);
-    const startM = snapped % 1 === 0.5 ? "30" : "00";
-    const endSnapped = snapped + 1;
-    const endH = Math.floor(endSnapped);
-    const endM = endSnapped % 1 === 0.5 ? "30" : "00";
+  // --- Drag state ---
+  const dragRef = useRef<DayViewDrag | null>(null);
+  const ghostRef = useRef<DayViewGhost | null>(null);
+  const [ghost, setGhostState] = useState<DayViewGhost | null>(null);
+  const columnRefs = useRef(new Map<string, HTMLDivElement>());
 
-    if (startH >= CLINIC_END) return;
+  // Keep live values accessible from window event handlers
+  const liveRef = useRef({ appointments, dentists, canCreate, dateParam });
+  liveRef.current = { appointments, dentists, canCreate, dateParam };
 
-    setNewApptPrefill({
-      dentistId,
-      date: dateParam,
-      startTime: `${String(startH).padStart(2, "0")}:${startM}`,
-      endTime: `${String(Math.min(endH, CLINIC_END)).padStart(2, "0")}:${endM === "00" && endH === CLINIC_END ? "00" : endM}`,
-    });
+  function setGhost(g: DayViewGhost | null) {
+    ghostRef.current = g;
+    setGhostState(g);
   }
+
+  function getColumnY(dentistId: string, clientY: number): number {
+    const el = columnRefs.current.get(dentistId);
+    if (!el) return 0;
+    return clientY - el.getBoundingClientRect().top;
+  }
+
+  function handleColumnMouseDown(e: React.MouseEvent, dentistId: string) {
+    if (!canCreate) return;
+    if (e.button !== 0) return;
+    if ((e.target as HTMLElement).closest("[data-appt]")) return;
+    e.preventDefault();
+
+    const y = getColumnY(dentistId, e.clientY);
+    const snapped = yToTime(y);
+
+    dragRef.current = { kind: "create", dentistId, anchorY: snapped.top };
+    setGhost({
+      kind: "create",
+      dentistId,
+      top: snapped.top,
+      height: SNAP * PX_PER_MIN,
+      startHHMM: snapped.hhmm,
+      endHHMM: minsToHHMM(snapped.minutes + SNAP),
+    });
+
+    document.body.style.cursor = "ns-resize";
+    document.body.style.userSelect = "none";
+  }
+
+  function handleApptMouseDown(e: React.MouseEvent, appt: AppointmentWithRelations) {
+    if (!canCreate) return;
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+
+    const apptTop = timeToY(appt.startTime);
+    const apptEnd = timeToY(appt.endTime);
+    const durationMins = (apptEnd - apptTop) / PX_PER_MIN;
+    const grabOffsetY = getColumnY(appt.dentistId, e.clientY) - apptTop;
+
+    dragRef.current = {
+      kind: "reschedule",
+      apptId: appt.id,
+      dentistId: appt.dentistId,
+      durationMins,
+      grabOffsetY,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+    };
+
+    setGhost({
+      kind: "reschedule",
+      dentistId: appt.dentistId,
+      top: apptTop,
+      height: durationMins * PX_PER_MIN,
+      startHHMM: format(new Date(appt.startTime), "HH:mm"),
+      endHHMM: format(new Date(appt.endTime), "HH:mm"),
+    });
+
+    document.body.style.cursor = "grabbing";
+    document.body.style.userSelect = "none";
+  }
+
+  useEffect(() => {
+    function onMove(e: MouseEvent) {
+      if (!dragRef.current) return;
+      const drag = dragRef.current;
+
+      if (drag.kind === "create") {
+        const y = getColumnY(drag.dentistId, e.clientY);
+        const anchorMins = drag.anchorY / PX_PER_MIN + CLINIC_START * 60;
+        const curMins = yToTime(y).minutes;
+        const rawStart = Math.min(anchorMins, curMins);
+        const rawEnd = Math.max(anchorMins, curMins);
+        const snappedStart = Math.max(CLINIC_START * 60, Math.round(rawStart / SNAP) * SNAP);
+        const snappedEnd = Math.min(CLINIC_END * 60, Math.max(Math.round(rawEnd / SNAP) * SNAP, snappedStart + SNAP));
+        const newGhost: DayViewGhost = {
+          kind: "create",
+          dentistId: drag.dentistId,
+          top: (snappedStart - CLINIC_START * 60) * PX_PER_MIN,
+          height: Math.max((snappedEnd - snappedStart) * PX_PER_MIN, SNAP * PX_PER_MIN),
+          startHHMM: minsToHHMM(snappedStart),
+          endHHMM: minsToHHMM(snappedEnd),
+        };
+        ghostRef.current = newGhost;
+        setGhostState(newGhost);
+
+      } else {
+        const y = getColumnY(drag.dentistId, e.clientY);
+        const startTime = yToTime(y - drag.grabOffsetY);
+        const endMins = Math.min(CLINIC_END * 60, startTime.minutes + drag.durationMins);
+        const newGhost: DayViewGhost = {
+          kind: "reschedule",
+          dentistId: drag.dentistId,
+          top: startTime.top,
+          height: drag.durationMins * PX_PER_MIN,
+          startHHMM: startTime.hhmm,
+          endHHMM: minsToHHMM(endMins),
+        };
+        ghostRef.current = newGhost;
+        setGhostState(newGhost);
+      }
+    }
+
+    async function onUp(e: MouseEvent) {
+      if (!dragRef.current) return;
+      const drag = dragRef.current;
+      const g = ghostRef.current;
+      const { appointments, dateParam } = liveRef.current;
+
+      if (drag.kind === "create" && g) {
+        setNewApptPrefill({
+          dentistId: drag.dentistId,
+          date: dateParam,
+          startTime: g.startHHMM,
+          endTime: g.endHHMM,
+        });
+      } else if (drag.kind === "reschedule" && g) {
+        const moved =
+          Math.abs(e.clientX - drag.startClientX) > 6 ||
+          Math.abs(e.clientY - drag.startClientY) > 6;
+
+        if (!moved) {
+          const appt = appointments.find((a) => a.id === drag.apptId);
+          if (appt) setSelected(appt);
+        } else {
+          // Optimistic update then PATCH
+          setAppointments((prev) =>
+            prev.map((a) =>
+              a.id !== drag.apptId
+                ? a
+                : {
+                    ...a,
+                    startTime: new Date(`1970-01-01T${g.startHHMM}:00`) as unknown as Date,
+                    endTime: new Date(`1970-01-01T${g.endHHMM}:00`) as unknown as Date,
+                  }
+            )
+          );
+          try {
+            const res = await fetch(`/api/appointments/${drag.apptId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ startTime: g.startHHMM, endTime: g.endHHMM }),
+            });
+            if (!res.ok) {
+              fetchAppointments();
+            } else {
+              const updated: AppointmentWithRelations = await res.json();
+              setAppointments((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+            }
+          } catch {
+            fetchAppointments();
+          }
+        }
+      }
+
+      dragRef.current = null;
+      ghostRef.current = null;
+      setGhostState(null);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    }
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [fetchAppointments]);
 
   const hours = Array.from({ length: TOTAL_HOURS + 1 }, (_, i) => CLINIC_START + i);
 
@@ -122,7 +330,9 @@ export function DayView({ dentists, role }: Props) {
       </div>
 
       {canCreate && (
-        <p className="text-xs text-gray-400">Clique em um horário vazio para criar um agendamento.</p>
+        <p className="text-xs text-gray-400">
+          Clique e arraste em um horário vazio para criar um agendamento. Arraste um agendamento para reagendá-lo.
+        </p>
       )}
 
       <div className="bg-white rounded-2xl border border-gray-200 overflow-auto">
@@ -145,6 +355,7 @@ export function DayView({ dentists, role }: Props) {
             {/* Dentist columns */}
             {dentists.map((dentist) => {
               const dentistAppts = appointments.filter((a) => a.dentistId === dentist.id);
+              const isGhostColumn = ghost?.dentistId === dentist.id;
 
               return (
                 <div key={dentist.id} className="flex-1 min-w-[160px] border-r border-gray-200 last:border-r-0">
@@ -154,16 +365,14 @@ export function DayView({ dentists, role }: Props) {
                     </span>
                   </div>
 
-                  {/* Time grid — clickable for empty slots */}
                   <div
-                    className={`relative ${canCreate ? "cursor-pointer" : ""}`}
-                    style={{ height: TOTAL_HOURS * SLOT_HEIGHT }}
-                    onClick={(e) => {
-                      // Only fire if clicking the column background, not an appointment block
-                      if ((e.target as HTMLElement).closest("button[data-appt]")) return;
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      handleSlotClick(dentist.id, e.clientY - rect.top);
+                    ref={(el) => {
+                      if (el) columnRefs.current.set(dentist.id, el);
+                      else columnRefs.current.delete(dentist.id);
                     }}
+                    className={`relative ${canCreate ? "cursor-cell" : ""}`}
+                    style={{ height: TOTAL_HOURS * SLOT_HEIGHT }}
+                    onMouseDown={(e) => handleColumnMouseDown(e, dentist.id)}
                   >
                     {/* Hour lines */}
                     {hours.map((h, idx) => (
@@ -183,7 +392,7 @@ export function DayView({ dentists, role }: Props) {
                       />
                     ))}
 
-                    {/* Current-time indicator — today only */}
+                    {/* Current-time indicator */}
                     {isViewingToday && nowY >= 0 && nowY <= TOTAL_HOURS * SLOT_HEIGHT && (
                       <div
                         className="absolute left-0 right-0 z-20 pointer-events-none flex items-center"
@@ -200,13 +409,19 @@ export function DayView({ dentists, role }: Props) {
                       const height = heightFor(appt.startTime, appt.endTime);
                       const colorClass = STATUS_BG_SOLID[appt.status as AppointmentStatus];
                       const isPast = getAppointmentDateTime(appt.date, appt.startTime) < now;
+                      const isBeingDragged =
+                        ghost?.kind === "reschedule" && ghost.dentistId === dentist.id &&
+                        dragRef.current?.kind === "reschedule" && dragRef.current.apptId === appt.id;
 
                       return (
                         <button
                           key={appt.id}
                           data-appt="true"
-                          onClick={(e) => { e.stopPropagation(); setSelected(appt); }}
-                          className={`absolute left-1 right-1 rounded-md text-white text-left px-2 py-1 overflow-hidden ${colorClass} hover:brightness-110 transition-all shadow-sm z-10 ${isPast ? "opacity-50 grayscale" : ""}`}
+                          onMouseDown={canCreate ? (e) => handleApptMouseDown(e, appt) : undefined}
+                          onClick={!canCreate ? (e) => { e.stopPropagation(); setSelected(appt); } : undefined}
+                          className={`absolute left-1 right-1 rounded-md text-white text-left px-2 py-1 overflow-hidden ${colorClass} transition-all shadow-sm z-10 ${
+                            canCreate ? "cursor-grab" : "cursor-pointer hover:brightness-110"
+                          } ${isPast ? "opacity-50 grayscale" : ""} ${isBeingDragged ? "opacity-30" : ""}`}
                           style={{ top, height: Math.max(height - 2, 18) }}
                           title={`${appt.patient.user.name} — ${STATUS_LABELS[appt.status as AppointmentStatus]}`}
                         >
@@ -219,6 +434,30 @@ export function DayView({ dentists, role }: Props) {
                         </button>
                       );
                     })}
+
+                    {/* Reschedule ghost */}
+                    {isGhostColumn && ghost?.kind === "reschedule" && (
+                      <div
+                        className="absolute left-1 right-1 z-30 pointer-events-none rounded-md border-l-[3px] border-l-indigo-400 bg-indigo-100/80 shadow-lg"
+                        style={{ top: ghost.top, height: ghost.height }}
+                      >
+                        <p className="text-xs text-indigo-700 font-semibold px-1.5 pt-0.5 truncate">
+                          {ghost.startHHMM} – {ghost.endHHMM}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Create ghost */}
+                    {isGhostColumn && ghost?.kind === "create" && (
+                      <div
+                        className="absolute left-1 right-1 z-30 pointer-events-none rounded-md border border-dashed border-indigo-400 bg-indigo-50/80"
+                        style={{ top: ghost.top, height: ghost.height }}
+                      >
+                        <p className="text-xs text-indigo-500 font-medium px-1.5 pt-0.5 truncate">
+                          {ghost.startHHMM} – {ghost.endHHMM}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
