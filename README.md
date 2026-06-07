@@ -23,6 +23,7 @@ Full-stack dental clinic scheduling and management system built with Next.js, Po
 | Toasts | Sonner |
 | Testing | Jest 30 + React Testing Library 16 |
 | CI | GitHub Actions (lint → test → build) |
+| Database Host | Neon (PostgreSQL, sa-east-1) |
 
 ## Features
 
@@ -61,7 +62,8 @@ cp .env.example .env
 Edit `.env`:
 
 ```env
-DATABASE_URL="postgresql://postgres:password@localhost:5432/clinica_db?schema=public"
+DATABASE_URL="postgresql://<user>:<password>@<host>/neondb?channel_binding=require&sslmode=require"
+# Get your connection string from console.neon.tech
 NEXTAUTH_SECRET="your-secret-here"
 NEXTAUTH_URL="http://localhost:3000"
 
@@ -237,3 +239,10 @@ prisma/
   seed.ts              # Sample data (admin, dentists, receptionist, patients, appointments)
   migrations/          # Prisma migration history
 ```
+
+## Team
+
+| Name | Matricula |
+|------|-----------|
+| Matheus Nepomuceno | 22510870 |
+| [MEMBER 2 NAME] | [MATRICULA] |
