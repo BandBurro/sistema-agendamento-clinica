@@ -199,7 +199,7 @@ export function AppointmentModal({
                   <p className="text-gray-400 text-xs uppercase tracking-wide">Reagendar</p>
                   <div>
                     <label className="block text-xs text-gray-600 mb-1">Data</label>
-                    <DatePicker value={rescheduleDate} onChange={setRescheduleDate} required />
+                    <DatePicker value={rescheduleDate} onChange={setRescheduleDate} required minDate={format(new Date(), "yyyy-MM-dd")} />
                   </div>
                   <div className="flex gap-3">
                     <div className="flex-1">

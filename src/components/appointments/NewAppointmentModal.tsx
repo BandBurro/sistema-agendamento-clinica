@@ -117,7 +117,7 @@ export function NewAppointmentModal({ dentists, prefill, onClose, onCreated }: P
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Data</label>
-            <DatePicker value={date} onChange={setDate} required />
+            <DatePicker value={date} onChange={setDate} required minDate={format(new Date(), "yyyy-MM-dd")} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">

@@ -24,11 +24,12 @@ interface Props {
   onChange: (date: string) => void;
   required?: boolean;
   label?: string;
+  minDate?: string; // "yyyy-MM-dd"
 }
 
 const WEEK_DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
-export function DatePicker({ value, onChange, required }: Props) {
+export function DatePicker({ value, onChange, required, minDate }: Props) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [popoverPos, setPopoverPos] = useState({ top: 0, left: 0, width: 0 });
@@ -147,21 +148,27 @@ export function DatePicker({ value, onChange, required }: Props) {
           const isSelected = selected ? isSameDay(day, selected) : false;
           const todayDay = isToday(day);
 
+          const dayStr = format(day, "yyyy-MM-dd");
+          const isDisabled = minDate ? dayStr < minDate : false;
+
           return (
             <button
               key={i}
               type="button"
-              onClick={() => selectDay(day)}
+              onClick={() => !isDisabled && selectDay(day)}
+              disabled={isDisabled}
               className={`
                 mx-auto w-9 h-9 flex items-center justify-center rounded-full text-sm font-medium
                 transition-all duration-100 active:scale-95
-                ${isSelected
-                  ? "bg-gradient-to-br from-indigo-500 to-indigo-700 text-white shadow-md shadow-indigo-200"
-                  : todayDay && inMonth
-                    ? "ring-2 ring-inset ring-indigo-300 text-indigo-600 hover:bg-indigo-50"
-                    : inMonth
-                      ? "text-gray-700 hover:bg-indigo-50 hover:text-indigo-700"
-                      : "text-gray-300 hover:bg-gray-50 hover:text-gray-500"
+                ${isDisabled
+                  ? "text-gray-200 cursor-not-allowed bg-transparent"
+                  : isSelected
+                    ? "bg-gradient-to-br from-indigo-500 to-indigo-700 text-white shadow-md shadow-indigo-200"
+                    : todayDay && inMonth
+                      ? "ring-2 ring-inset ring-indigo-300 text-indigo-600 hover:bg-indigo-50"
+                      : inMonth
+                        ? "text-gray-700 hover:bg-indigo-50 hover:text-indigo-700"
+                        : "text-gray-300 hover:bg-gray-50 hover:text-gray-500"
                 }
               `}
             >
@@ -180,8 +187,9 @@ export function DatePicker({ value, onChange, required }: Props) {
         </span>
         <button
           type="button"
+          disabled={minDate ? format(new Date(), "yyyy-MM-dd") < minDate : false}
           onClick={() => { selectDay(new Date()); setViewMonth(new Date()); }}
-          className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors px-2 py-0.5 rounded hover:bg-indigo-50"
+          className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors px-2 py-0.5 rounded hover:bg-indigo-50 disabled:text-gray-300 disabled:hover:bg-transparent disabled:cursor-not-allowed"
         >
           Hoje
         </button>
