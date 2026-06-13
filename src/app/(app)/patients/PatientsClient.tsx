@@ -11,7 +11,11 @@ interface PatientRow {
   id: string;
   phone: string;
   user: { id: string; name: string; email: string; active: boolean };
+ feature/badge-status-pacientes
   appointments: { status: AppointmentStatus; date: string }[];
+
+  appointments: { status: AppointmentStatus; date: Date }[];
+ main
 }
 
 interface Props {
@@ -151,7 +155,11 @@ export function PatientsClient({ patients: initialPatients }: Props) {
                       {/* Última consulta */}
                       <td className="px-6 py-3 text-gray-500">
                         {lastAppt
+feature/badge-status-pacientes
                           ? format(new Date(lastAppt.date), "dd/MM/yyyy", { locale: ptBR })
+
+                          ? format(lastAppt.date, "dd/MM/yyyy", { locale: ptBR })
+ main
                           : "—"}
                       </td>
 

@@ -4,7 +4,11 @@ import { PatientsClient } from "./PatientsClient";
 import { redirect } from "next/navigation";
 
 export default async function PatientsPage() {
+ feature/badge-status-pacientes
   const { session, error } = await requireAuth(["ADMIN", "RECEPTIONIST", "DENTIST"]);
+
+  const { error } = await requireAuth(["ADMIN", "RECEPTIONIST", "DENTIST"]);
+ main
   
   if (error) {
     redirect("/unauthorized");
