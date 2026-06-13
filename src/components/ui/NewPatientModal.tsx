@@ -3,6 +3,24 @@
 import { useState } from "react";
 import { fetchAddressByCep } from "@/services/viacep";
 
+/** Formata CEP: XXXXX-XXX */
+function formatCEP(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+  if (digits.length > 5) {
+    return digits.slice(0, 5) + "-" + digits.slice(5);
+  }
+  return digits;
+}
+
+/** Formata Telefone: (XX) XXXXX-XXXX */
+function formatPhone(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  if (digits.length === 0) return "";
+  if (digits.length <= 2) return `(${digits}`;
+  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
+
 interface Props {
   onClose: () => void;
   onCreated: () => void;
@@ -134,9 +152,11 @@ export function NewPatientModal({ onClose, onCreated }: Props) {
               <input
                 type="tel"
                 value={form.phone}
-                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, phone: formatPhone(e.target.value) }))
+                }
                 required
-                placeholder="+55 11 99999-0000"
+                placeholder="(11) 99999-0000"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
@@ -164,7 +184,7 @@ export function NewPatientModal({ onClose, onCreated }: Props) {
                   inputMode="numeric"
                   value={form.cep}
                   onChange={(e) => {
-                    setForm((f) => ({ ...f, cep: e.target.value }));
+                    setForm((f) => ({ ...f, cep: formatCEP(e.target.value) }));
                     if (cepStatus !== "idle") setCepStatus("idle");
                   }}
                   onBlur={handleCepBlur}
