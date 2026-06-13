@@ -4,7 +4,7 @@ import { PatientsClient } from "./PatientsClient";
 import { redirect } from "next/navigation";
 
 export default async function PatientsPage() {
-  const { session, error } = await requireAuth(["ADMIN", "RECEPTIONIST", "DENTIST"]);
+  const { error } = await requireAuth(["ADMIN", "RECEPTIONIST", "DENTIST"]);
   
   if (error) {
     redirect("/unauthorized");
