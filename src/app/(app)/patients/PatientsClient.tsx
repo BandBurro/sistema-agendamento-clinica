@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { NewPatientModal } from "@/components/ui/NewPatientModal";
@@ -11,7 +11,7 @@ interface PatientRow {
   id: string;
   phone: string;
   user: { id: string; name: string; email: string; active: boolean };
-  appointments: { status: AppointmentStatus; date: Date }[];
+  appointments: { status: AppointmentStatus; date: string }[];
 }
 
 interface Props {
@@ -151,7 +151,7 @@ export function PatientsClient({ patients: initialPatients }: Props) {
                       {/* Última consulta */}
                       <td className="px-6 py-3 text-gray-500">
                         {lastAppt
-                          ? format(new Date(lastAppt.date), "dd/MM/yyyy", { locale: ptBR })
+                          ? format(parseISO(lastAppt.date), "dd/MM/yyyy", { locale: ptBR })
                           : "—"}
                       </td>
 
