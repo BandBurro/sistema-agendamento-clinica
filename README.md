@@ -245,4 +245,4 @@ prisma/
 | Name | Matricula |
 |------|-----------|
 | Matheus Nepomuceno | 22510870 |
-| [MEMBER 2 NAME] | [MATRICULA] |
+| Jonathan Francisco dos Santos Silva | 22509817 |
