@@ -58,6 +58,8 @@ export async function POST(req: NextRequest) {
     const blankToNull = (v: unknown) =>
       typeof v === "string" && v.trim() ? v.trim() : null;
     const cepDigits = typeof cep === "string" ? cep.replace(/\D/g, "") : "";
+    const phoneDigits = typeof phone === "string" ? phone.replace(/\D/g, "") : "";
+    const normalizedPhone = phoneDigits.startsWith("55") ? phoneDigits : "55" + phoneDigits;
     const ufClean =
       typeof uf === "string" && uf.trim() ? uf.trim().toUpperCase() : null;
 
@@ -69,7 +71,7 @@ export async function POST(req: NextRequest) {
         role: "PATIENT",
         patient: {
           create: {
-            phone,
+            phone: normalizedPhone,
             dateOfBirth: new Date(dateOfBirth),
             medicalNotes: blankToNull(medicalNotes),
             cep: cepDigits.length === 8 ? cepDigits : null,
