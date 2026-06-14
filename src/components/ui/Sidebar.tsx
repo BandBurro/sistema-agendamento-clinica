@@ -65,7 +65,7 @@ interface NavLink {
 const navLinks: NavLink[] = [
   { href: "/dashboard", label: "Calendário",        roles: ["ADMIN", "RECEPTIONIST", "DENTIST"], icon: <CalendarIcon /> },
   { href: "/kanban",    label: "Kanban",             roles: ["ADMIN", "RECEPTIONIST"],            icon: <KanbanIcon /> },
-  { href: "/patients",  label: "Pacientes",          roles: ["ADMIN", "RECEPTIONIST"],            icon: <UsersIcon /> },
+  { href: "/patients",  label: "Pacientes",          roles: ["ADMIN", "RECEPTIONIST", "DENTIST"], icon: <UsersIcon /> },
   { href: "/portal",    label: "Meus Agendamentos", roles: ["PATIENT"],                          icon: <ClipboardIcon /> },
   { href: "/admin",     label: "Administração",     roles: ["ADMIN"],                            icon: <SettingsIcon /> },
 ];

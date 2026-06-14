@@ -10,6 +10,7 @@ const { auth } = NextAuth(authConfig);
 const roleAccess: Record<string, Role[]> = {
   "/admin": ["ADMIN"],
   "/kanban": ["ADMIN", "RECEPTIONIST"],
+  "/patients": ["ADMIN", "RECEPTIONIST", "DENTIST"],
   "/day": ["ADMIN", "RECEPTIONIST", "DENTIST"],
   "/dashboard": ["ADMIN", "RECEPTIONIST", "DENTIST"],
   "/portal": ["PATIENT"],

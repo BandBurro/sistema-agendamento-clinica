@@ -11,7 +11,7 @@ interface PatientRow {
   id: string;
   phone: string;
   user: { id: string; name: string; email: string; active: boolean };
-  appointments: { status: AppointmentStatus; date: string }[];
+  appointments: { status: AppointmentStatus; date: Date | string }[];
 }
 
 interface Props {
