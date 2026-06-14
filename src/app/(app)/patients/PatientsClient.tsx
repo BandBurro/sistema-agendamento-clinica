@@ -11,7 +11,7 @@ interface PatientRow {
   id: string;
   phone: string;
   user: { id: string; name: string; email: string; active: boolean };
-  appointments: { status: AppointmentStatus; date: Date }[];
+  appointments: { status: AppointmentStatus; date: Date | string }[];
 }
 
 interface Props {
@@ -151,7 +151,7 @@ export function PatientsClient({ patients: initialPatients }: Props) {
                       {/* Última consulta */}
                       <td className="px-6 py-3 text-gray-500">
                         {lastAppt
-                          ? format(lastAppt.date, "dd/MM/yyyy", { locale: ptBR })
+                          ? format(new Date(lastAppt.date), "dd/MM/yyyy", { locale: ptBR })
                           : "—"}
                       </td>
 

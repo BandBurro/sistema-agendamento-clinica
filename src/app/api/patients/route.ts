@@ -7,7 +7,14 @@ export async function GET() {
   if (error) return error;
 
   const patients = await prisma.patient.findMany({
-    include: { user: { select: { id: true, name: true, email: true, active: true } } },
+    include: {
+      user: { select: { id: true, name: true, email: true, active: true } },
+      appointments: {
+        orderBy: { date: "desc" },
+        take: 1,
+        select: { status: true, date: true },
+      },
+    },
     orderBy: { user: { name: "asc" } },
   });
 
